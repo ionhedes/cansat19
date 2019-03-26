@@ -14,8 +14,9 @@ except:
 
 try:
     adc = machine.ADC()
-    adc.init(bits=10)
+    adc.init()
     print ("analog communication init complete\n")
+
 except:
     print ("couldn't establish analog communication\n")
 
@@ -36,6 +37,12 @@ try:
     print ("ccs811 - environmental sensor ON\n")
 except:
     print ("ccs811 - environmental sensor OFF\n")
+
+try:
+    gasSensor = adc.channel(pin='P16')
+    print ("mics5524 - gas sensor ON\n")
+except:
+    print ("mics5524 - gas sensor OFF\n")
 
 try:
     while True:
