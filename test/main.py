@@ -1,20 +1,35 @@
 import pycom
+import socket
+from network import LoRa
 import time
 import machine
 import bme280_float
 import CCS811
 from imu import MPU6050
 
+try:
+    lora = LoRa(mode=LoRa.LORA, region=LoRa.EU868)
+    s = socket.socket(socket.AF_LORA, socket.SOCK_RAW)
+    s.setblocking(False)
+    print ("lora on")
+except:
+    print ("lora off")
+
+try:
+    uart_com = machine.UART(1, pins=("P3", "P4"), baudrate=9600)
+    print ("uart communication init complete\n")
+except:
+    print("uart raised an exception\n")
 
 try:
     i2c = machine.I2C(0, I2C.MASTER, baudrate=100000)
     print ("i2c init complete\n")
 except:
-    print ("i2c raised an exception")
+    print ("i2c raised an exception\n")
 
 try:
-    adc = machine.ADC()
-    adc.init()
+    adc = ADC.('P22')
+
     print ("analog communication init complete\n")
 
 except:
@@ -48,6 +63,14 @@ try:
     while True:
         if ccs.data_ready():
             values = bme.read_compensated_data(result = None)
-            print('eCO2: %d ppm, TVOC: %d ppb, temp: %.2f c, pres: %.2f pa, hum: %.2f, accelX: %.2f, accelY: %.2f , accelZ: %.2f ;' % (ccs.eCO2, ccs.tVOC, values[0], values[1]/256, values[2], imu.accel.x, imu.accel.y, imu.accel.z))
+            s.send('eCO2: %d ppm, TVOC: %d ppb, temp: %.2f c, pres: %.2f pa, hum: %.2f, accelX: %.2f, accelY: %.2f , accelZ: %.2f ;' % (ccs.eCO2, ccs.tVOC, values[0], values[1]/256, values[2], imu.accel.x, imu.accel.y, imu.accel.z))
+        else
+            print ("could not gather sensor data")
+        if uart_com.any():
+            gps_location = uart_com.readline()
+            print(gps_location)
+        else
+            print ("could not gather gps data")
+        time.sleep(5)
 except:
-    print ("couldn't gather data")
+    print ("nothing worked")
