@@ -11,9 +11,9 @@ try:
     lora = LoRa(mode=LoRa.LORA, region=LoRa.EU868)
     s = socket.socket(socket.AF_LORA, socket.SOCK_RAW)
     s.setblocking(False)
-    print ("lora on")
+    print ("lora on\n")
 except:
-    print ("lora off")
+    print ("lora off\n")
 
 try:
     uart_com = machine.UART(1, pins=("P3", "P4"), baudrate=9600)
@@ -26,14 +26,6 @@ try:
     print ("i2c init complete\n")
 except:
     print ("i2c raised an exception\n")
-
-try:
-    adc = ADC.('P22')
-
-    print ("analog communication init complete\n")
-
-except:
-    print ("couldn't establish analog communication\n")
 
 try:
     bme = bme280_float.BME280(i2c=i2c, address=0x77)
@@ -53,24 +45,16 @@ try:
 except:
     print ("ccs811 - environmental sensor OFF\n")
 
-try:
-    gasSensor = adc.channel(pin='P16')
-    print ("mics5524 - gas sensor ON\n")
-except:
-    print ("mics5524 - gas sensor OFF\n")
 
-try:
-    while True:
-        if ccs.data_ready():
-            values = bme.read_compensated_data(result = None)
-            s.send('eCO2: %d ppm, TVOC: %d ppb, temp: %.2f c, pres: %.2f pa, hum: %.2f, accelX: %.2f, accelY: %.2f , accelZ: %.2f ;' % (ccs.eCO2, ccs.tVOC, values[0], values[1]/256, values[2], imu.accel.x, imu.accel.y, imu.accel.z))
-        else
-            print ("could not gather sensor data")
-        if uart_com.any():
-            gps_location = uart_com.readline()
-            print(gps_location)
-        else
-            print ("could not gather gps data")
-        time.sleep(5)
-except:
-    print ("nothing worked")
+while True:
+    '''if ccs.data_ready():
+        values = bme.read_compensated_data(result = None)
+        s.send('eCO2: %d ppm, TVOC: %d ppb, temp: %.2f c, pres: %.2f pa, hum: %.2f, accelX: %.2f, accelY: %.2f , accelZ: %.2f ;' % (ccs.eCO2, ccs.tVOC, values[0], values[1]/256, values[2], imu.accel.x, imu.accel.y, imu.accel.z))
+    else:
+        print ("could not gather sensor data")'''
+    if uart_com.any():
+        gps_location = uart_com.readline()
+        print(gps_location)
+    else:
+        print ("could not gather gps data")
+    time.sleep(5)
