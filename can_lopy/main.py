@@ -7,6 +7,7 @@ from machine import UART
 import bme280_float
 import CCS811
 from imu import MPU6050
+import nmea
 import os
 
 '''print(os.uname())'''
@@ -52,7 +53,13 @@ try:
         ccs = CCS811.CCS811(i2c=i2c, addr=91)
         print (" . CCS811 - environmental sensor ON\n")
     except:
-        print (" ! ccs811 - environmental sensor OFF\n")
+        print (" ! CCS811 - environmental sensor OFF\n")
+
+    try:
+        nmea_parser = nmea.nmea(debug=1)
+        print (" . NMEA parser ON\n")
+    except:
+        print (" ! NMEA parser OFF\n")
 
 except:
         print("\n----------------------------------\nInitialization failed...\n----------------------------------\n")
@@ -64,24 +71,26 @@ if switch:
     print("\n----------------------------------\nEntering main loop...\n----------------------------------\n")
     pycom.heartbeat(True)
     while True:
+        if uart_com.any():
+            gps_location = uart_com.readline()
+            nmea_parser.parse(gps_location)
+            if nmea_parser.date == '01/01/2000' || nmea_parser.time == '00:00:00' || nmea_parser.latitude == '0' || nmea_parser.longitude == '0':
+                print(" * GPS signal not fixed yet")
+            else:
+                gps_location_raw = '%s,%s,%s,%s'% (nmea_parser.date, nmea_parser.time, nmea_parser.latitude, nmea_parser.longitude)
+                gps_location_encoded = gps_location_raw.encode('utf-8')
+                s.send(gps_location_encoded)
+                print('date: %s, time %s, latitude %s, longitude %s;'% (nmea_parser.date, nmea_parser.time, nmea_parser.latitude, nmea_parser.longitude))
+        else:
+            print (" ! Could not gather GPS data")
+
         if ccs.data_ready():
             values = bme.read_compensated_data(result = None)
-            try:
-                raw_data = '%d,%d,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f;'% (ccs.eCO2, ccs.tVOC, values[0], values[1]/256, values[2], imu.accel.x, imu.accel.y, imu.accel.z)
-                encoded_data = raw_data.encode('utf-8')
-                s.send(encoded_data)
-            except:
-                print ("no data")
-
-                print('eCO2: %d ppm, TVOC: %d ppb, temp: %.2f c, pres: %.2f pa, hum: %.2f, accelX: %.2f, accelY: %.2f , accelZ: %.2f ;\n '% (ccs.eCO2, ccs.tVOC, values[0], values[1]/256, values[2], imu.accel.x*10, imu.accel.y*10, imu.accel.z*10))
-
+            raw_data = '%d,%d,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f;'% (ccs.eCO2, ccs.tVOC, values[0], values[1]/256, values[2], imu.accel.x, imu.accel.y, imu.accel.z)
+            encoded_data = raw_data.encode('utf-8')
+            s.send(encoded_data)
+            print('eCO2: %d ppm, TVOC: %d ppb, temp: %.2f c, pres: %.2f pa, hum: %.2f, accelX: %.2f, accelY: %.2f , accelZ: %.2f ;\n '% (ccs.eCO2, ccs.tVOC, values[0], values[1]/256, values[2], imu.accel.x*10, imu.accel.y*10, imu.accel.z*10))
         else:
             print (" ! Could not gather sensor data\n")
-        '''if uart_com.any():
-            gps_location = uart_com.readline()
-            s.send(gps_location)
-            print(gps_location + '\n')
-        else:
-            print (" ! Could not gather GPS data\n")'''
 
-        time.sleep(7)
+        time.sleep(5)
