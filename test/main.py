@@ -74,7 +74,7 @@ if switch:
         if uart_com.any():
             gps_location = uart_com.readline()
             nmea_parser.parse(gps_location)
-            if nmea_parser.date == '01/01/2000' || nmea_parser.time == '00:00:00' || nmea_parser.latitude == '0' || nmea_parser.longitude == '0':
+            if nmea_parser.date == '01/01/2000' or nmea_parser.time == '00:00:00' or nmea_parser.latitude == '0' or nmea_parser.longitude == '0':
                 print(" * GPS signal not fixed yet")
             else:
                 gps_location_raw = '%s,%s,%s,%s'% (nmea_parser.date, nmea_parser.time, nmea_parser.latitude, nmea_parser.longitude)
