@@ -9,6 +9,8 @@ import CCS811
 from imu import MPU6050
 import nmea
 import os
+import machine
+import math
 
 '''print(os.uname())'''
 switch = True
@@ -67,30 +69,51 @@ except:
         pycom.heartbeat(False)
         pycom.rgbled(0x7f0000)
 
-if switch:
+if switch == True:
     print("\n----------------------------------\nEntering main loop...\n----------------------------------\n")
     pycom.heartbeat(True)
+    last_acceleration = 0
+    current_acceleration = 0
+    last_time = 0
+    current_time = 0
+    last_speed = 0
+    current_speed = 0
+    packet_no = 0
     while True:
-        if uart_com.any():
-            gps_location = uart_com.readline()
-            nmea_parser.parse(gps_location)
-            if nmea_parser.date == '01/01/2000' or nmea_parser.time == '00:00:00' or nmea_parser.latitude == '0' or nmea_parser.longitude == '0':
-                print(" * GPS signal not fixed yet")
+        current_time = time.time()
+        gps_data_ready = False
+        sensor_data_ready = False
+        try:
+            if uart_com.any():
+                gps_location = uart_com.readline()
+                nmea_parser.parse(gps_location)
+                gps_data_ready = True
             else:
-                gps_location_raw = '%s,%s,%s,%s'% (nmea_parser.date, nmea_parser.time, nmea_parser.latitude, nmea_parser.longitude)
-                gps_location_encoded = gps_location_raw.encode('utf-8')
-                s.send(gps_location_encoded)
-                print('date: %s, time %s, latitude %s, longitude %s;'% (nmea_parser.date, nmea_parser.time, nmea_parser.latitude, nmea_parser.longitude))
-        else:
-            print (" ! Could not gather GPS data")
+                print (" ! Could not gather GPS data")
+            if ccs.data_ready():
+                values = bme.read_compensated_data(result = None)
+                sensor_data_ready = True
+            else:
+                print (" ! Could not gather sensor data\n")
+        except:
+            print (" ! Error, rebooting...\n")
+            machine.reset()
 
-        if ccs.data_ready():
-            values = bme.read_compensated_data(result = None)
-            raw_data = '%d,%d,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f;'% (ccs.eCO2, ccs.tVOC, values[0], values[1]/256, values[2], imu.accel.x, imu.accel.y, imu.accel.z)
+        if gps_data_ready == True and sensor_data_ready == True:
+            packet_no+=1;
+            current_acceleration = math.sqrt(math.fabs((imu.accel.x*10) ** 2 + (imu.accel.y*10) ** 2 + (imu.accel.z*10) ** 2)) - 9.87
+            current_speed = last_speed + (current_acceleration - last_acceleration)*(current_time - last_time)
+            current_speed = math.fabs((current_speed - (current_speed - math.floor(current_speed)))/10)
+            raw_data = '92,%d,%d,%s,%s,%s,%s,%d,%d,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f'% (current_time, packet_no, nmea_parser.date, nmea_parser.time, nmea_parser.latitude, nmea_parser.longitude, ccs.eCO2, ccs.tVOC, values[0], values[1]/100, values[2], bme.altitude, imu.accel.x*10, imu.accel.y*10, imu.accel.z*10, current_speed)
             encoded_data = raw_data.encode('utf-8')
             s.send(encoded_data)
-            print('eCO2: %d ppm, TVOC: %d ppb, temp: %.2f c, pres: %.2f pa, hum: %.2f, accelX: %.2f, accelY: %.2f , accelZ: %.2f ;\n '% (ccs.eCO2, ccs.tVOC, values[0], values[1]/256, values[2], imu.accel.x*10, imu.accel.y*10, imu.accel.z*10))
-        else:
-            print (" ! Could not gather sensor data\n")
+            print("Data sent..")
 
+        last_time = current_time
+        last_acceleration = current_acceleration
+        last_speed = current_speed
         time.sleep(5)
+
+if switch == False:
+    print (" ! Error, rebooting...\n")
+    machine.reset()
